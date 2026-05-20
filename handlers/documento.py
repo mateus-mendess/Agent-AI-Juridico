@@ -1,13 +1,21 @@
 import os
+import logging
 import tempfile
-import google.generativeai as genai
+from openai import OpenAI
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+logger = logging.getLogger(__name__)
+
+client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
+)
+
+MODEL = "openrouter/auto"
 
 TIPOS_DOCUMENTO = {
     "doc_procuracao": "Procuração",
@@ -17,15 +25,16 @@ TIPOS_DOCUMENTO = {
 
 CAMPOS_DOCUMENTO = {
     "doc_procuracao": [
-        ("outorgante_nome", "Nome completo do *Outorgante* (quem dá poderes):"),
+        ("outorgante_nome", "Nome completo do *Outorgante*:"),
         ("outorgante_cpf", "CPF do Outorgante:"),
+        ("outorgante_qualificacao", "Qualificação do Outorgante (ex: brasileiro, policial militar, solteiro):"),
         ("outorgante_endereco", "Endereço completo do Outorgante:"),
-        ("outorgado_nome", "Nome completo do *Outorgado* (quem recebe poderes):"),
-        ("outorgado_cpf", "CPF do Outorgado:"),
-        ("outorgado_oab", "Número da OAB do Outorgado (se advogado):"),
-        ("finalidade", "Finalidade da procuração (ex: representar em ação trabalhista):"),
-        ("poderes", "Poderes específicos (ex: assinar documentos, receber valores, etc):"),
-        ("cidade", "Cidade e Estado onde será assinada:"),
+        ("outorgado_nome", "Nome completo do *Outorgado* (advogado):"),
+        ("outorgado_oab", "Número da OAB (ex: OAB/AL nº 15.787):"),
+        ("outorgado_endereco", "Endereço profissional do Outorgado:"),
+        ("tipo", "Tipo da procuração (*cível* ou *criminal*):"),
+        ("numero_processo", "Número do processo (apenas se criminal, senão digite *não se aplica*):"),
+        ("cidade", "Cidade e Estado:"),
     ],
     "doc_termo": [
         ("declarante_nome", "Nome completo do *Declarante*:"),
@@ -50,19 +59,21 @@ CAMPOS_DOCUMENTO = {
 }
 
 PROMPTS_DOCUMENTO = {
-    "doc_procuracao": """Gere uma Procuração formal completa em português brasileiro com base nos dados abaixo.
-O documento deve seguir as normas jurídicas brasileiras, incluindo qualificação completa das partes,
-poderes outorgados de forma clara, e espaço para assinatura e reconhecimento de firma.
-Use linguagem jurídica formal e adequada.
+    "doc_procuracao": """Gere uma Procuração formal em português brasileiro seguindo EXATAMENTE esta estrutura, sem adicionar nada além do que está aqui:
 
-Dados:
-Outorgante: {outorgante_nome}, CPF {outorgante_cpf}, residente em {outorgante_endereco}
-Outorgado: {outorgado_nome}, CPF {outorgado_cpf}, OAB {outorgado_oab}
-Finalidade: {finalidade}
-Poderes: {poderes}
-Local: {cidade}
+OUTORGANTE(s): {outorgante_nome}, {outorgante_qualificacao}, inscrito no CPF nº {outorgante_cpf}, residente e domiciliado em {outorgante_endereco}.
 
-Gere apenas o texto do documento, sem explicações adicionais.""",
+OUTORGADO(S): {outorgado_nome}, advogado(a), inscrito(a) na {outorgado_oab}, com endereço profissional sito à {outorgado_endereco}.
+
+PODERES: Se o tipo for "cível", use exatamente: "Os da Cláusula AD JUDICIA e os especiais para: desistir, transigir, firmar compromissos, assinar documentos, podendo receber notificações, citações e intimações, carta precatória na forma da lei, levantamento de alvará judicial, e poderes especiais para representar o outorgante perante qualquer órgão da administração pública ou privada, praticar todos os demais atos necessários ao fiel desempenho do presente mandato, inclusive substabelecer, com ou sem reservas de poderes."
+Se o tipo for "criminal", use o mesmo texto acima e adicione ao final: "nos autos do processo nº {numero_processo}."
+
+{cidade}, _____ de ________________ de 20____.
+
+__________________________________________________
+{outorgante_nome}
+
+NÃO adicione nenhum outro campo, assinatura ou texto além do que está neste modelo.""",
 
     "doc_termo": """Gere um Termo de Declaração formal completo em português brasileiro com base nos dados abaixo.
 O documento deve seguir as normas jurídicas brasileiras, incluindo qualificação do declarante,
@@ -95,10 +106,7 @@ Gere apenas o texto do documento, sem explicações adicionais.""",
 def criar_docx(tipo: str, conteudo: str, dados: dict) -> str:
     doc = Document()
 
-    # Configuração de página A4
     section = doc.sections[0]
-    section.page_width = int(8.27 * 914400 / 1000 * 1000)
-    section.page_height = int(11.69 * 914400 / 1000 * 1000)
     section.left_margin = Inches(1.2)
     section.right_margin = Inches(1.2)
     section.top_margin = Inches(1)
@@ -123,23 +131,6 @@ def criar_docx(tipo: str, conteudo: str, dados: dict) -> str:
         else:
             doc.add_paragraph()
 
-    # Espaço para assinaturas
-    doc.add_paragraph()
-    doc.add_paragraph()
-
-    cidade = dados.get("cidade", "_______________")
-    p_local = doc.add_paragraph(f"{cidade}, ______ de ________________ de 20____.")
-    p_local.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    doc.add_paragraph()
-    doc.add_paragraph()
-
-    # Linha de assinatura
-    for label in ["_______________________________", "Assinatura"]:
-        p = doc.add_paragraph(label)
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    # Salva em arquivo temporário
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
     doc.save(tmp.name)
     return tmp.name
@@ -233,9 +224,19 @@ async def handle_documento_input(update: Update, context: ContextTypes.DEFAULT_T
 
         try:
             prompt = PROMPTS_DOCUMENTO[doc_tipo].format(**dados)
-            model = genai.GenerativeModel(model_name="gemini-2.0-flash")
-            response = model.generate_content(prompt)
-            conteudo = response.text
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            conteudo = response.choices[0].message.content
+            usage = response.usage
+            logger.info(
+                f"[TOKENS/DOC] input={usage.prompt_tokens} | "
+                f"output={usage.completion_tokens} | "
+                f"total={usage.total_tokens}"
+            )
 
             docx_path = criar_docx(doc_tipo, conteudo, dados)
 

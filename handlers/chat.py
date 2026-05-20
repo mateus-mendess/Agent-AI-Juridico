@@ -1,9 +1,17 @@
 import os
-import google.generativeai as genai
+import logging
+from openai import OpenAI
 from telegram import Update
 from telegram.ext import ContextTypes
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+logger = logging.getLogger(__name__)
+
+client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
+)
+
+MODEL = "openrouter/auto"
 
 SYSTEM_PROMPT = """Você é Harvey Specter, um assistente jurídico especializado e altamente competente.
 Você auxilia advogados e escritórios de advocacia com questões de direito civil, criminal e trabalhista brasileiro.
@@ -27,35 +35,41 @@ Responda SEMPRE em português brasileiro."""
 async def handle_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
 
-    # Inicializa histórico se não existir
     if "history" not in context.user_data:
         context.user_data["history"] = []
 
     await update.message.reply_chat_action("typing")
 
     try:
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction=SYSTEM_PROMPT
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages += context.user_data["history"]
+        messages.append({"role": "user", "content": user_message})
+
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=messages
         )
 
-        # Monta histórico no formato do Gemini
-        history = context.user_data["history"]
-        chat = model.start_chat(history=history)
-        response = chat.send_message(user_message)
-        reply = response.text
+        reply = response.choices[0].message.content
 
-        # Salva no histórico
-        context.user_data["history"].append({"role": "user", "parts": [user_message]})
-        context.user_data["history"].append({"role": "model", "parts": [reply]})
+        # Log de tokens
+        usage = response.usage
+        logger.info(
+            f"[TOKENS] input={usage.prompt_tokens} | "
+            f"output={usage.completion_tokens} | "
+            f"total={usage.total_tokens}"
+        )
 
-        # Limita histórico a 20 mensagens para não estourar tokens
+        context.user_data["history"].append({"role": "user", "content": user_message})
+        context.user_data["history"].append({"role": "assistant", "content": reply})
+
         if len(context.user_data["history"]) > 20:
             context.user_data["history"] = context.user_data["history"][-20:]
 
         await update.message.reply_text(reply)
 
     except Exception as e:
+        logger.error(f"Erro no chat: {e}", exc_info=True)
         await update.message.reply_text(
             "⚠️ Ocorreu um erro ao processar sua mensagem. Tente novamente em instantes."
         )

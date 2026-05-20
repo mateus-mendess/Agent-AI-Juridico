@@ -1,26 +1,33 @@
 import os
+import logging
 import tempfile
-import google.generativeai as genai
+from openai import OpenAI
 from telegram import Update
 from telegram.ext import ContextTypes
 import PyPDF2
 import docx
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+logger = logging.getLogger(__name__)
+
+client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
+)
+
+MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "google/gemma-4-31b-it:free",
+]
 
 RESUMO_PROMPT = """Você é Harvey Specter, um assistente jurídico especializado.
-Analise o documento jurídico a seguir e forneça um resumo estruturado em português brasileiro contendo:
+Faça um resumo FIEL e CONCISO do documento jurídico abaixo em português brasileiro.
 
-1. **Tipo de Documento**
-2. **Partes Envolvidas**
-3. **Objeto/Finalidade**
-4. **Principais Obrigações e Direitos**
-5. **Prazos Importantes** (se houver)
-6. **Cláusulas de Destaque**
-7. **Riscos Jurídicos Identificados**
-8. **Recomendações**
-
-Seja objetivo e use linguagem jurídica precisa."""
+Regras:
+- Resuma APENAS o que está no documento, sem adicionar informações externas
+- Máximo de 200 palavras
+- Destaque: objetivo do documento, partes envolvidas, poderes/objeto e observações relevantes
+- Não invente cláusulas, prazos ou riscos que não estejam no documento"""
 
 
 def extract_text_pdf(file_path: str) -> str:
@@ -35,6 +42,23 @@ def extract_text_pdf(file_path: str) -> str:
 def extract_text_docx(file_path: str) -> str:
     doc = docx.Document(file_path)
     return "\n".join([para.text for para in doc.paragraphs])
+
+def call_llm(messages: list, max_tokens: int = 512) -> str:
+    for model in MODELS:
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens
+            )
+            content = response.choices[0].message.content
+            if content:
+                logger.info(f"[MODEL] {model} | tokens={response.usage.total_tokens}")
+                return content
+        except Exception as e:
+            logger.warning(f"[FALLBACK] {model} falhou: {e}")
+            continue
+    return None
 
 
 async def handle_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -58,7 +82,6 @@ async def handle_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await file.download_to_drive(tmp.name)
             tmp_path = tmp.name
 
-        # Extrai texto conforme tipo
         if file_name.endswith(".pdf"):
             text = extract_text_pdf(tmp_path)
         else:
@@ -67,22 +90,19 @@ async def handle_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os.unlink(tmp_path)
 
         if not text.strip():
-            await update.message.reply_text("⚠️ Não foi possível extrair texto do documento. Verifique se o arquivo não está protegido ou escaneado.")
+            await update.message.reply_text("⚠️ Não foi possível extrair texto do documento.")
             return
 
-        # Limita o texto para não estourar tokens (aprox. 30k caracteres)
         if len(text) > 30000:
             text = text[:30000] + "\n\n[Documento truncado para análise]"
 
-        model = genai.GenerativeModel(model_name="gemini-2.0-flash")
-        response = model.generate_content(f"{RESUMO_PROMPT}\n\n---\n\n{text}")
+        reply = call_llm([
+            {"role": "system", "content": RESUMO_PROMPT},
+            {"role": "user", "content": text}
+        ], max_tokens=512)
 
-        await update.message.reply_text(
-            f"📋 *Resumo Jurídico*\n\n{response.text}",
-            parse_mode="Markdown"
-        )
+        await update.message.reply_text(f"📋 Resumo Jurídico\n\n{reply}")
 
     except Exception as e:
-        await update.message.reply_text(
-            "⚠️ Erro ao processar o documento. Tente novamente ou verifique o arquivo."
-        )
+        logger.error(f"Erro no resumo: {e}", exc_info=True)
+        await update.message.reply_text("⚠️ Erro ao processar o documento. Tente novamente.")
