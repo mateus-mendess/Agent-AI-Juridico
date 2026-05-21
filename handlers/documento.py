@@ -93,7 +93,7 @@ REGRAS CRÍTICAS:
 
 Pelo presente instrumento de contrato de prestação de serviços advocatícios, constitui a parte contratante seus bastantes procuradores legais: {advogado_nome}, advogado(a), inscrito(a) na {advogado_oab}, com endereço profissional sito à {advogado_endereco}, doravante denominado CONSTITUIDOS, e do outro lado:
 
-{cliente_nome}, {cliente_qualificacao}, portador(a) do RG nº {cliente_rg} e CPF nº {cliente_cpf}, residente e domiciliado em {cliente_endereco}.
+{cliente_nome}, {cliente_qualificacao}, portador(a) do CPF nº {cliente_cpf}, residente e domiciliado em {cliente_endereco}.
 
 I- O constituído se compromete a patrocinar a causa do (a) constituinte, que consiste em ajuizar {objeto}, exercendo todos os atos necessários para a defesa de seus interesses até a prolação da Sentença.
 
