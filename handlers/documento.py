@@ -38,22 +38,21 @@ CAMPOS_DOCUMENTO = {
     ],
     "doc_termo": [
         ("declarante_nome", "Nome completo do *Declarante*:"),
+        ("declarante_qualificacao", "Qualificação (ex: brasileiro, policial militar, solteiro):"),
         ("declarante_cpf", "CPF do Declarante:"),
         ("declarante_endereco", "Endereço completo do Declarante:"),
-        ("objeto_declaracao", "O que está sendo declarado:"),
-        ("finalidade", "Finalidade da declaração (para qual fim será usada):"),
         ("cidade", "Cidade e Estado:"),
     ],
     "doc_contrato": [
-        ("contratante_nome", "Nome completo ou razão social do *Contratante*:"),
-        ("contratante_cpf", "CPF/CNPJ do Contratante:"),
-        ("contratante_endereco", "Endereço do Contratante:"),
-        ("contratado_nome", "Nome completo ou razão social do *Contratado*:"),
-        ("contratado_cpf", "CPF/CNPJ do Contratado:"),
-        ("contratado_endereco", "Endereço do Contratado:"),
-        ("objeto", "Objeto do contrato (o que está sendo contratado):"),
-        ("valor", "Valor e forma de pagamento:"),
-        ("prazo", "Prazo de vigência do contrato:"),
+        ("advogado_nome", "Nome completo do *Advogado*:"),
+        ("advogado_oab", "Número da OAB (ex: OAB/AL nº 15.787):"),
+        ("advogado_endereco", "Endereço profissional do Advogado:"),
+        ("cliente_nome", "Nome completo do *Cliente*:"),
+        ("cliente_qualificacao", "Qualificação do Cliente (ex: brasileiro, casado, fotógrafo):"),
+        ("cliente_cpf", "CPF do Cliente:"),
+        ("cliente_endereco", "Endereço completo do Cliente:"),
+        ("valor_entrada", "Valor de entrada (ex: R$ 500,00 (quinhentos reais)):"),
+        ("percentual", "Percentual sobre o proveito (ex: 30%):"),
         ("cidade", "Cidade e Estado:"),
     ],
 }
@@ -75,31 +74,65 @@ __________________________________________________
 
 NÃO adicione nenhum outro campo, assinatura ou texto além do que está neste modelo.""",
 
-    "doc_termo": """Gere um Termo de Declaração formal completo em português brasileiro com base nos dados abaixo.
-O documento deve seguir as normas jurídicas brasileiras, incluindo qualificação do declarante,
-declaração clara e objetiva, e espaço para assinatura e testemunhas.
+    "doc_termo": """Gere um Termo de Declaração de Inaptidão Provisória em português brasileiro seguindo EXATAMENTE esta estrutura, sem mover nenhum elemento de lugar:
 
-Dados:
-Declarante: {declarante_nome}, CPF {declarante_cpf}, residente em {declarante_endereco}
-Declaração: {objeto_declaracao}
-Finalidade: {finalidade}
-Local: {cidade}
+{declarante_nome}, {declarante_qualificacao}, inscrito no CPF nº {declarante_cpf}, residente e domiciliado em {declarante_endereco}. Declara para os devidos fins, de fato e de direito, nos termos da lei n.º 7.115/83, art. 2º, parágrafo único da lei n.º 1.060/50 art.98/99 do Novo CPC e art. 5º, inciso LXXIV da Constituição Federal de 1988, que dispõe sobre prova documental para todos os fins de direito, inclusive para fazer prova junto à Justiça Gratuita, que é pobre na forma da lei, não podendo custear as despesas com processo judicial oneroso sem ameaçar a subsistência própria e de sua família, pelo que assume inteira responsabilidade, sob as penas da lei por esta declaração.
 
-Gere apenas o texto do documento, sem explicações adicionais.""",
+{cidade}, ____ de _________ de 20____.
 
-    "doc_contrato": """Gere um Contrato formal completo em português brasileiro com base nos dados abaixo.
-O documento deve seguir as normas jurídicas brasileiras, com cláusulas bem definidas sobre
-objeto, obrigações das partes, valor, prazo, rescisão e foro competente.
+_______________________________________________
+{declarante_nome}
 
-Dados:
-Contratante: {contratante_nome}, CPF/CNPJ {contratante_cpf}, endereço {contratante_endereco}
-Contratado: {contratado_nome}, CPF/CNPJ {contratado_cpf}, endereço {contratado_endereco}
-Objeto: {objeto}
-Valor e Pagamento: {valor}
-Prazo: {prazo}
-Local: {cidade}
+REGRAS CRÍTICAS:
+- A data ({cidade}, ____ de ___ de 20____) vem DEPOIS do parágrafo da declaração, NUNCA antes
+- NÃO adicione nenhum outro campo, assinatura ou texto
+- NÃO mova nenhum elemento de lugar
+- Copie a estrutura EXATAMENTE como está acima""",
 
-Gere apenas o texto do documento, sem explicações adicionais.""",
+    "doc_contrato": """Gere um Contrato de Honorários Advocatícios em português brasileiro seguindo EXATAMENTE esta estrutura, substituindo apenas os dados variáveis:
+
+Pelo presente instrumento de contrato de prestação de serviços advocatícios, constitui a parte contratante seus bastantes procuradores legais: {advogado_nome}, advogado(a), inscrito(a) na {advogado_oab}, com endereço profissional sito à {advogado_endereco}, doravante denominado CONSTITUIDOS, e do outro lado:
+
+{cliente_nome}, {cliente_qualificacao}, portador(a) do RG nº {cliente_rg} e CPF nº {cliente_cpf}, residente e domiciliado em {cliente_endereco}.
+
+I- O constituído se compromete a patrocinar a causa do (a) constituinte, que consiste em ajuizar {objeto}, exercendo todos os atos necessários para a defesa de seus interesses até a prolação da Sentença.
+
+II - Em contraprestação aos serviços prestados, o constituinte se compromete a remunerar os serviços prestados pelo constituído, sob a importância de:
+- O contratante pagará a quantia de {valor_entrada} a título de entrada, no ato da assinatura deste contrato.
+- Fica estabelecido {percentual} do valor proveito que o contratante obtiver com a ação judicial.
+
+III- O constituinte declara aceitar as condições de caracterizar a presente prestação, independendo, pois, de sucesso na causa, não obstante responda pelas perdas e danos, oriundas de falta de diligência na condução da causa;
+
+IV- A verba oriunda das partes adversas pelo PRINCIPIO DA SUCUMBÊNCIA, REVERTERÁ em beneficio exclusivo do CONSTITUIDO, em limite arbitrado pelo juiz, desvinculado do presente contrato e isento de qualquer desconto;
+
+V - O presente contrato abrange apenas a prestação contida no item I, do presente instrumento, qualquer ação subsequente embora correlata, será objeto de um novo contrato;
+
+VI - As custas, bem como todas as despesas processuais, quer sejam judiciais ou extrajudiciais, inerentes ao presente processo, correrão por conta exclusiva do CONSTITUINTE;
+
+VII - A totalidade dos honorários poderá ser exigida imediatamente, caso haja composição amigável, realizada por quaisquer das partes litigantes, ou em caso de não prosseguimento da ação, por qualquer circunstância, não determinada pelo advogado constituído ou, ainda, se lhe for cassado o mandado sem culpa;
+
+VIII - O presente contrato poderá ser rescindido por qualquer uma das partes sem o pagamento de multa ressaltado o respeito das seguintes providências.
+a - Se a rescisão partir do constituído, esta deverá notificar de sua renúncia e aguardar o prazo de 10 dias para a nomeação e um substituto, sem a necessidade de devolução de honorários recebidos, mas desistindo das parcelas futuras;
+b - Se a rescisão partir do constituinte, este deverá estar com os honorários devidamente quitados até o momento da rescisão.
+
+IX- Fica eleito o fórum da Comarca de União dos Palmares para dirimir eventuais litígios decorrentes do presente contrato.
+
+Estando as partes de comum acordo, firmam o presente contrato em 02 vias para maior validade jurídica.
+
+{cidade}, _____ de ________________ de 20____.
+
+__________________________________________________
+{cliente_nome}
+
+_______________________________________________
+{advogado_nome}
+{advogado_oab}
+
+Testemunha I ____________________________________________________
+
+Testemunha II ___________________________________________________
+
+NÃO adicione nenhum outro campo ou texto além do que está neste modelo.""",
 }
 
 

@@ -25,9 +25,11 @@ Faça um resumo FIEL e CONCISO do documento jurídico abaixo em português brasi
 
 Regras:
 - Resuma APENAS o que está no documento, sem adicionar informações externas
-- Máximo de 200 palavras
+- Máximo de 400 palavras
 - Destaque: objetivo do documento, partes envolvidas, poderes/objeto e observações relevantes
-- Não invente cláusulas, prazos ou riscos que não estejam no documento"""
+- Não invente cláusulas, prazos ou riscos que não estejam no documento
+- Sempre finalize o raciocínio completamente, nunca corte no meio de uma frase
+- Nunca mencione o limite de palavras na resposta"""
 
 
 def extract_text_pdf(file_path: str) -> str:
@@ -43,7 +45,7 @@ def extract_text_docx(file_path: str) -> str:
     doc = docx.Document(file_path)
     return "\n".join([para.text for para in doc.paragraphs])
 
-def call_llm(messages: list, max_tokens: int = 512) -> str:
+def call_llm(messages: list, max_tokens: int = 1500) -> str:
     for model in MODELS:
         try:
             response = client.chat.completions.create(
@@ -99,7 +101,7 @@ async def handle_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = call_llm([
             {"role": "system", "content": RESUMO_PROMPT},
             {"role": "user", "content": text}
-        ], max_tokens=512)
+        ], max_tokens=1500)
 
         await update.message.reply_text(f"📋 Resumo Jurídico\n\n{reply}")
 
